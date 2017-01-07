@@ -266,7 +266,6 @@ impl SynCpu {
             Ret => {
                 if self.stack.is_empty() {
                     self.halted = true;
-                    self.error = SynCpuErr::PopOnEmptyStack;
                 }
                 let val = self.stack.pop().unwrap();
                 self.pc = val;
