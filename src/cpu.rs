@@ -277,6 +277,11 @@ impl SynCpu {
             In { dst } => {
                 let mut buf = [0; 1];
                 stdin().read_exact(&mut buf).unwrap();
+                
+		        if buf[0] == 13 {
+		            return;
+		        }
+                
                 self.set_reg(dst, buf[0] as u16);
                 self.pc += instr.size();
             },
