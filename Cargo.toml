@@ -5,3 +5,4 @@ authors = ["Willam Woodhead <william.woodhead@lux01.co.uk>"]
 
 [dependencies]
 byteorder = "1.0"
+termion = "1.1"

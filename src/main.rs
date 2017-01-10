@@ -4,15 +4,21 @@
 #![warn(missing_docs)]
 
 extern crate byteorder;
-
-pub mod instruction;
+extern crate termion;
 pub mod cpu;
-pub mod debugger;
+pub mod syn_int;
+
+mod debugger;
+use debugger::{Debugger, Command};
+
+use cpu::{SynCpu, Data};
 
 use std::io::Read;
 use std::fs::File;
+use std::sync::mpsc::channel;
 
-use cpu::SynCpu;
+use termion::raw::IntoRawMode;
+use std::io::{stdout, Write};
 
 const BINARY_NAME: &'static str = "challenge.bin";
 
@@ -26,10 +32,12 @@ fn main() {
         buffer
     };
 
-    let cpu = SynCpu::new(&binary)
-        .expect("Failed to create CPU");
-
-    let mut gdb = debugger::Debugger::new(cpu, 20);
-
-    gdb.prompt();
+    let mut dbg = Debugger::new(binary);
+    loop {
+        let cmd = dbg.prompt();
+        if cmd == Command::Quit {
+            break;
+        }
+        dbg.run_command(cmd);
+    }
 }
