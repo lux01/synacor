@@ -5,20 +5,17 @@
 
 extern crate byteorder;
 extern crate termion;
+#[macro_use] extern crate chan;
+extern crate chan_signal;
+
 pub mod cpu;
 pub mod syn_int;
 
 mod debugger;
-use debugger::{Debugger, Command};
-
-use cpu::{SynCpu, Data};
+use debugger::Debugger;
 
 use std::io::Read;
 use std::fs::File;
-use std::sync::mpsc::channel;
-
-use termion::raw::IntoRawMode;
-use std::io::{stdout, Write};
 
 const BINARY_NAME: &'static str = "challenge.bin";
 
@@ -31,13 +28,10 @@ fn main() {
             .expect("Failed to read in binary contents.");
         buffer
     };
-
+    
     let mut dbg = Debugger::new(binary);
-    loop {
-        let cmd = dbg.prompt();
-        if cmd == Command::Quit {
-            break;
-        }
-        dbg.run_command(cmd);
-    }
+
+    dbg.main_loop();
+
+    println!("Goodbye!");
 }

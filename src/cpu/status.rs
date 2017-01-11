@@ -4,20 +4,19 @@ use std::fmt;
 use std::error;
 use std::default::Default;
 
+/// An enum listing the different operation states that the CPU can be in at any one time.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Status {
     /// The CPU is operating normally
     Ok,
+    /// An interrupt was triggered
+    Interrupted,
     /// An attempt to pop on an empty stack was performed
     PopOnEmptyStack,
     /// An instruction could not be parsed
     InstructionParseError,
     /// An unimplemented instruction was requested
     UnimplementedInstruction,
-    /// The CPU could not write to stdout
-    StdoutWriteError,
-    /// The CPU could not read from stdin
-    StdinReadError,
 }
 
 impl fmt::Display for Status {
@@ -25,11 +24,10 @@ impl fmt::Display for Status {
         use self::Status::*;
         match *self {
             Ok => write!(f, "Ok"),
+            Interrupted => write!(f, "Interrupted"),
             PopOnEmptyStack => write!(f, "Pop on empty stack"),
             InstructionParseError => write!(f, "Instruction parse error"),
             UnimplementedInstruction => write!(f, "Unimplemented instruction error"),
-            StdoutWriteError => write!(f, "Stdout write error"),
-            StdinReadError => write!(f, "Stdin read error"),
         }
     }
 }
@@ -39,11 +37,10 @@ impl error::Error for Status {
         use self::Status::*;
         match *self {
             Ok => "Ok",
+            Interrupted => "Interrupted",
             PopOnEmptyStack => "Pop on empty stack",
             InstructionParseError => "Instruction parse error",
             UnimplementedInstruction => "Unimplemented instruction error",
-            StdoutWriteError => "Stdout write error",
-            StdinReadError => "Stdin read error",
         }
     }
 

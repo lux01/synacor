@@ -11,22 +11,6 @@ pub enum SynInt {
     Register(usize),
 }
 
-impl SynInt {
-    pub fn as_literal(&self) -> u16 {
-        match *self {
-            SynInt::Literal(x) => x,
-            SynInt::Register(_) => panic!("SynInt::as_literal called on a register"),
-        }
-    }
-
-    pub fn as_reg(&self) -> usize {
-        match *self {
-            SynInt::Literal(_) => panic!("SynInt::as_reg called on a literal"),
-            SynInt::Register(r) => r,
-        }
-    }
-}
-
 impl From<u16> for SynInt {
     fn from(val: u16) -> SynInt {
         if val < 32768 {

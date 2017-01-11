@@ -8,15 +8,8 @@ pub mod instruction;
 
 pub use self::data::Data;
 pub use self::status::Status;
-pub use self::instruction::Instruction;
+pub use self::instruction::{Operation, Instruction};
 
-use std::sync::{Arc, Mutex};
-use std::sync::mpsc::{Receiver, Sender, channel};
-
-/// The Stdin type used by the CPU
-pub type Stdin = Receiver<u16>;
-/// The Stdout type used by the CPU
-pub type Stdout = Sender<u16>;
 
 /// An emulator for the SynCpu architecture.
 #[derive(Clone)]
@@ -27,10 +20,10 @@ pub struct SynCpu {
     pub halted: bool,
     /// An enum describing the error that halted execution, if any.
     pub status: status::Status,
-    /// A receiver for inputs from the terminal
-    pub stdin: Arc<Mutex<Stdin>>,
-    /// A sender for outputs to the terminal
-    pub stdout: Stdout,
+    /// A buffer for reads from stdin
+    stdin_buf: String,
+    /// Set to true if the CPU is explicitly stepping
+    step: bool
 }
 
 const MOD_BASE: u32 = 32768;
@@ -38,28 +31,35 @@ const MOD_BASE: u32 = 32768;
 impl SynCpu {
     /// Constructs a new VM with a given receiver for input.
     /// Returns the VM and a receiver for output.
-    pub fn new(stdin: Stdin) -> (SynCpu, Stdin) {
-        let (stdout_tx, stdout_rx) = channel();
-        let cpu = SynCpu {
+    pub fn new() -> SynCpu {
+        SynCpu {
             pc: 0,
             halted: false,
             status: status::Status::default(),
-            stdin: Arc::new(Mutex::new(stdin)),
-            stdout: stdout_tx,
-        };
-        (cpu, stdout_rx)
+            stdin_buf: String::new(),
+            step: false,
+        }
     }
 
     /// Returns the next instruction to be evaluated.
-    pub fn peek_instr(&self, data: &Data) -> Instruction {
-        Instruction::next(&data[self.pc..])
+    pub fn peek_instr(&self, data: &Data) -> Operation {
+        Operation::next(&data[self.pc..])
     }
     
     /// Evaluates the next instruction given the system data
-    /// and returns the instruction evaluated.
-    pub fn step(&mut self, data: &mut Data) -> Instruction {
+    /// returns any potential output for stdout.
+    pub fn step(&mut self, data: &mut Data, input: &[u16]) -> Option<u16> {
         let next_instr = self.peek_instr(&data);
 
+        if let Operation::Breakpoint(instr) = next_instr {
+            if self.status == Status::Ok {
+                self.status = Status::Interrupted;
+                return None;
+            }
+        }
+        let next_instr = next_instr.instr();
+        let mut out = None;
+        
         use self::Instruction::*;
         match next_instr {
             Halt => {
@@ -159,24 +159,10 @@ impl SynCpu {
             },
             Out(val) => {
                 let val = data.val(val);
-                match self.stdout.send(val) {
-                    Err(_) => {
-                        self.status = Status::StdoutWriteError;
-                        self.halted = true;
-                    },
-                    _ => {},
-                }
+                out = Some(val);
             },
             In(dst) => {
-                match self.stdin.lock().unwrap().recv() {
-                    Err(_) => {
-                        self.status = Status::StdinReadError;
-                        self.halted = true;
-                    },
-                    Ok(val) => {
-                        data[dst] = val;
-                    }
-                }
+                data[dst] = input[0];
             },
             Noop => {
                 
@@ -191,7 +177,7 @@ impl SynCpu {
         // The instruction knows how much to increment the pc by
         self.pc += next_instr.size();
         
-        next_instr
+        out
     }
     
 }

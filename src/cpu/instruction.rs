@@ -32,6 +32,68 @@ use syn_int::SynInt;
 
 use std::fmt;
 
+/// A VM extension to support interrupt instructions.
+///
+/// Interrupt symbols are used so the debugger can pause execution
+/// and inspect the VM. They are implemented using the upper byte
+/// of a 16-bit instruction. If the upper byte is equal to `0xcc`
+/// (the `int 3` opcode in x86) then the instruction is a breakpoint,
+/// otherwise it is a regular instruction.
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum Operation {
+    /// A regular instruction
+    Regular(Instruction),
+    /// A debugging breakpoint, execution should pause before
+    /// this instruction is exectued.
+    Breakpoint(Instruction),
+}
+
+impl Operation {
+
+    pub fn next(ram: &[u16]) -> Operation {
+        use self::Instruction::*;
+        let instr = match 0x00ff & ram[0] {
+            0 => Halt,
+            1 => Set(ram[1].into(), ram[2].into()),
+            2 => Push(ram[1].into()),
+            3 => Pop(ram[1].into()),
+            4 => Eq(ram[1].into(), ram[2].into(), ram[3].into()),
+            5 => Gt(ram[1].into(), ram[2].into(), ram[3].into()),
+            6 => Jmp(ram[1].into()),
+            7 => Jt(ram[1].into(), ram[2].into()),
+            8 => Jf(ram[1].into(), ram[2].into()),
+            9 => Add(ram[1].into(), ram[2].into(), ram[3].into()),
+            10 => Mult(ram[1].into(), ram[2].into(), ram[3].into()),
+            11 => Mod(ram[1].into(), ram[2].into(), ram[3].into()),
+            12 => And(ram[1].into(), ram[2].into(), ram[3].into()),
+            13 => Or(ram[1].into(), ram[2].into(), ram[3].into()),
+            14 => Not(ram[1].into(), ram[1].into()),
+            15 => ReadMem(ram[1].into(), ram[2].into()),
+            16 => WriteMem(ram[1].into(), ram[2].into()),
+            17 => Call(ram[1].into()),
+            18 => Ret,
+            19 => Out(ram[1].into()),
+            20 => In(ram[1].into()),
+            21 => Noop,
+            _ => _Unknown,
+        };
+
+        if (ram[0] >> 8) & 0xcc == 0xcc {
+            Operation::Breakpoint(instr)
+        } else {
+            Operation::Regular(instr)
+        }
+    }
+
+    pub fn instr(self) -> Instruction {
+        match self {
+            Operation::Regular(i) => i,
+            Operation::Breakpoint(i) => i,
+        }
+    }
+    
+}
+
 /// Enum representation of all the supported instructions.
 ///
 /// `SynInt`s are used instead of raw `u16` values for arguments. See the module
@@ -120,48 +182,48 @@ impl fmt::Display for Instruction {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Instruction::*;
         match *self {
-            Halt               => write!(f, "halt   "),
-            Set(dst, a)        => write!(f, "set    {} {}",
+            Halt               => write!(f, "halt "),
+            Set(dst, a)        => write!(f, "set  {} {}",
                                          dst, a),
-            Push(src)          => write!(f, "push   {}",
+            Push(src)          => write!(f, "push {}",
                                          src),
-            Pop(dst)           => write!(f, "pop    {}",
+            Pop(dst)           => write!(f, "pop  {}",
                                          dst),
-            Eq(dst, a, b)      => write!(f, "eq     {} {} {}",
+            Eq(dst, a, b)      => write!(f, "eq   {} {} {}",
                                          dst, a, b),
-            Gt(dst, a, b)      => write!(f, "gt     {} {} {}",
+            Gt(dst, a, b)      => write!(f, "gt   {} {} {}",
                                          dst, a, b),
-            Jmp(dst)           => write!(f, "jmp    {:x}",
+            Jmp(dst)           => write!(f, "jmp  {:x}",
                                          dst),
-            Jt(src, dst)       => write!(f, "jmnz   {} {:x}",
+            Jt(src, dst)       => write!(f, "jmnz {} {:x}",
                                          src, dst),
-            Jf(src, dst)       => write!(f, "jmpz   {} {:x}",
+            Jf(src, dst)       => write!(f, "jmpz {} {:x}",
                                          src, dst),
-            Add(dst, a, b)     => write!(f, "add    {} {} {}",
+            Add(dst, a, b)     => write!(f, "add  {} {} {}",
                                          dst, a, b),
-            Mult(dst, a, b)    => write!(f, "mult   {} {} {}",
+            Mult(dst, a, b)    => write!(f, "mult {} {} {}",
                                          dst, a, b),
-            Mod(dst, a, b)     => write!(f, "mod    {} {} {}",
+            Mod(dst, a, b)     => write!(f, "mod  {} {} {}",
                                          dst, a, b),
-            And(dst,a , b)     => write!(f, "and    {} {} {}",
+            And(dst,a , b)     => write!(f, "and  {} {} {}",
                                          dst, a, b),
-            Or(dst, a, b)      => write!(f, "or     {} {} {}",
+            Or(dst, a, b)      => write!(f, "or   {} {} {}",
                                          dst, a, b),
-            Not(dst, a)        => write!(f, "not    {} {}",
+            Not(dst, a)        => write!(f, "not  {} {}",
                                          dst, a),
-            ReadMem(dst, src)  => write!(f, "rmem   {} {:x}",
+            ReadMem(dst, src)  => write!(f, "rmem {} {:x}",
                                          dst, src),
-            WriteMem(dst, src) => write!(f, "wmem   {} {:x}",
+            WriteMem(dst, src) => write!(f, "wmem {} {:x}",
                                          dst, src),
-            Call(dst)          => write!(f, "call   {:x}",
+            Call(dst)          => write!(f, "call {:x}",
                                          dst),
-            Ret                => write!(f, "ret    "),
-            Out(val)           => write!(f, "out    {}",
+            Ret                => write!(f, "ret  "),
+            Out(val)           => write!(f, "out  {}",
                                          val),
-            In(dst)            => write!(f, "in     {}",
+            In(dst)            => write!(f, "in   {}",
                                          dst),
-            Noop               => write!(f, "noop   "),
-            _Unknown           => write!(f, "UNKNOWN"),
+            Noop               => write!(f, "noop "),
+            _Unknown           => write!(f, "????"),
         }
     }
 }

@@ -24,6 +24,7 @@ pub struct Data {
 }
 
 impl Data {
+    /// Constructs a new CPU data structure given a program binary.
     pub fn from_bin(binary: &[u8]) -> io::Result<Data> {
         let mut data = Data {
             registers: [0; 8],
@@ -58,6 +59,8 @@ impl Data {
         self.stack.is_empty()
     }
 
+    /// Convert a SynInt to a u16 either directly or
+    /// by accessing a register.
     pub fn val(&self, idx: SynInt) -> u16 {
         match idx {
             SynInt::Literal(x) => x,
@@ -71,7 +74,7 @@ impl<'a> Index<SynInt> for Data {
 
     fn index(&self, idx: SynInt) -> &u16 {
         match idx {
-            SynInt::Literal(ref x) => panic!("Attempted to read a register with a literal"),
+            SynInt::Literal(_) => panic!("Attempted to read a register with a literal"),
             SynInt::Register(r) => self.registers.index(r),
         }
     }
