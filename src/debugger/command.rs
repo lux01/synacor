@@ -4,6 +4,7 @@ use std::char;
 
 use super::Debugger;
 use cpu::instruction::Operation;
+use cpu::{SynCpu, Data};
 
 /// The commands runnable by the debugger
 #[derive(Debug, PartialEq, Eq)]
@@ -16,6 +17,7 @@ pub enum Command {
     Quit,
     Breakpoint,
     Memory,
+    Restart,
 }
 
 impl<'a> From<&'a str> for Command {
@@ -28,6 +30,7 @@ impl<'a> From<&'a str> for Command {
             "c" | "run" => Command::Run,
             "bp" | "breakpoint" => Command::Breakpoint,
             "m" | "memory" => Command::Memory,
+            "restart" => Command::Restart,
             _ => Command::Unknown,
         }
     }
@@ -43,7 +46,13 @@ impl Command {
                 println!("The following commands are available. Short forms are listed\
                           in brackets after the long form. Options, if any are listed\
                           after the short forms");
-                println!("\thelp (h, ?) - Print this message");
+                println!("\thelp (h, ?)               - Print this message");
+                println!("\tstep (s) [n]              - Step through n instructions (default = 1)");
+                println!("\tregisters (r)             - Print the registers");
+                println!("\trun (c)                   - Run execution until a breakpoint is hit or the CPU halts.");
+                println!("\tbreakpoint (bp)           - Set, unset, or list breakpoints.");
+                println!("\tmemory (m) [addr] [lines] - Print 20 lines of 8 16-bit entries from RAM, starting at addr. Default lines = 10, default addr = pc");
+                println!("\trestart                   - Restart the program.");
             },
             Step => {
                 let times = if args.is_empty() {
@@ -199,6 +208,10 @@ impl Command {
                     }
                     println!("{:40} {}", hexs, printable);
                 }
+            },
+            Restart => {
+                let data = Data::from_bin(&dbg.original_binary).unwrap();
+                dbg.cpu = SynCpu::new(data);
             }
             Quit | Unknown => {}
         }
