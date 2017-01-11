@@ -32,67 +32,6 @@ use syn_int::SynInt;
 
 use std::fmt;
 
-/// A VM extension to support interrupt instructions.
-///
-/// Interrupt symbols are used so the debugger can pause execution
-/// and inspect the VM. They are implemented using the upper byte
-/// of a 16-bit instruction. If the upper byte is equal to `0xcc`
-/// (the `int 3` opcode in x86) then the instruction is a breakpoint,
-/// otherwise it is a regular instruction.
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum Operation {
-    /// A regular instruction
-    Regular(Instruction),
-    /// A debugging breakpoint, execution should pause before
-    /// this instruction is exectued.
-    Breakpoint(Instruction),
-}
-
-impl Operation {
-
-    pub fn next(ram: &[u16]) -> Operation {
-        use self::Instruction::*;
-        let instr = match 0x00ff & ram[0] {
-            0 => Halt,
-            1 => Set(ram[1].into(), ram[2].into()),
-            2 => Push(ram[1].into()),
-            3 => Pop(ram[1].into()),
-            4 => Eq(ram[1].into(), ram[2].into(), ram[3].into()),
-            5 => Gt(ram[1].into(), ram[2].into(), ram[3].into()),
-            6 => Jmp(ram[1].into()),
-            7 => Jt(ram[1].into(), ram[2].into()),
-            8 => Jf(ram[1].into(), ram[2].into()),
-            9 => Add(ram[1].into(), ram[2].into(), ram[3].into()),
-            10 => Mult(ram[1].into(), ram[2].into(), ram[3].into()),
-            11 => Mod(ram[1].into(), ram[2].into(), ram[3].into()),
-            12 => And(ram[1].into(), ram[2].into(), ram[3].into()),
-            13 => Or(ram[1].into(), ram[2].into(), ram[3].into()),
-            14 => Not(ram[1].into(), ram[1].into()),
-            15 => ReadMem(ram[1].into(), ram[2].into()),
-            16 => WriteMem(ram[1].into(), ram[2].into()),
-            17 => Call(ram[1].into()),
-            18 => Ret,
-            19 => Out(ram[1].into()),
-            20 => In(ram[1].into()),
-            21 => Noop,
-            _ => _Unknown,
-        };
-
-        if (ram[0] >> 8) & 0xcc == 0xcc {
-            Operation::Breakpoint(instr)
-        } else {
-            Operation::Regular(instr)
-        }
-    }
-
-    pub fn instr(self) -> Instruction {
-        match self {
-            Operation::Regular(i) => i,
-            Operation::Breakpoint(i) => i,
-        }
-    }
-    
-}
 
 /// Enum representation of all the supported instructions.
 ///
@@ -129,38 +68,6 @@ pub enum Instruction {
 }
 
 impl Instruction {
-    /// Reads the next instruction from the provided slice
-    /// into RAM. Panics if the slice is not long enough to decode
-    /// an instruction fully.
-    pub fn next(ram: &[u16]) -> Instruction {
-        use self::Instruction::*;
-        match ram[0] {
-            0 => Halt,
-            1 => Set(ram[1].into(), ram[2].into()),
-            2 => Push(ram[1].into()),
-            3 => Pop(ram[1].into()),
-            4 => Eq(ram[1].into(), ram[2].into(), ram[3].into()),
-            5 => Gt(ram[1].into(), ram[2].into(), ram[3].into()),
-            6 => Jmp(ram[1].into()),
-            7 => Jt(ram[1].into(), ram[2].into()),
-            8 => Jf(ram[1].into(), ram[2].into()),
-            9 => Add(ram[1].into(), ram[2].into(), ram[3].into()),
-            10 => Mult(ram[1].into(), ram[2].into(), ram[3].into()),
-            11 => Mod(ram[1].into(), ram[2].into(), ram[3].into()),
-            12 => And(ram[1].into(), ram[2].into(), ram[3].into()),
-            13 => Or(ram[1].into(), ram[2].into(), ram[3].into()),
-            14 => Not(ram[1].into(), ram[1].into()),
-            15 => ReadMem(ram[1].into(), ram[2].into()),
-            16 => WriteMem(ram[1].into(), ram[2].into()),
-            17 => Call(ram[1].into()),
-            18 => Ret,
-            19 => Out(ram[1].into()),
-            20 => In(ram[1].into()),
-            21 => Noop,
-            _ => _Unknown,
-        }
-    }
-
     /// Returns the amount to increment the program counter by after
     /// executing the instruction. Note that this returns 0 for all jump
     /// instructions as they modify the program counter directly.
@@ -224,6 +131,93 @@ impl fmt::Display for Instruction {
                                          dst),
             Noop               => write!(f, "noop "),
             _Unknown           => write!(f, "????"),
+        }
+    }
+}
+
+/// A VM extension to support interrupt instructions.
+///
+/// Interrupt symbols are used so the debugger can pause execution
+/// and inspect the VM. They are implemented using the upper byte
+/// of a 16-bit instruction. If the upper byte is equal to `0xcc`
+/// (the `int 3` opcode in x86) then the instruction is a breakpoint,
+/// otherwise it is a regular instruction.
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum Operation {
+    /// A regular instruction
+    Regular(Instruction),
+    /// A debugging breakpoint, execution should pause before
+    /// this instruction is exectued.
+    Breakpoint(Instruction),
+}
+
+impl Operation {
+
+    /// Returns the next operation from RAM.
+    pub fn next(ram: &[u16]) -> Operation {
+        use self::Instruction::*;
+        let instr = match 0x00ff & ram[0] {
+            0 => Halt,
+            1 => Set(ram[1].into(), ram[2].into()),
+            2 => Push(ram[1].into()),
+            3 => Pop(ram[1].into()),
+            4 => Eq(ram[1].into(), ram[2].into(), ram[3].into()),
+            5 => Gt(ram[1].into(), ram[2].into(), ram[3].into()),
+            6 => Jmp(ram[1].into()),
+            7 => Jt(ram[1].into(), ram[2].into()),
+            8 => Jf(ram[1].into(), ram[2].into()),
+            9 => Add(ram[1].into(), ram[2].into(), ram[3].into()),
+            10 => Mult(ram[1].into(), ram[2].into(), ram[3].into()),
+            11 => Mod(ram[1].into(), ram[2].into(), ram[3].into()),
+            12 => And(ram[1].into(), ram[2].into(), ram[3].into()),
+            13 => Or(ram[1].into(), ram[2].into(), ram[3].into()),
+            14 => Not(ram[1].into(), ram[2].into()),
+            15 => ReadMem(ram[1].into(), ram[2].into()),
+            16 => WriteMem(ram[1].into(), ram[2].into()),
+            17 => Call(ram[1].into()),
+            18 => Ret,
+            19 => Out(ram[1].into()),
+            20 => In(ram[1].into()),
+            21 => Noop,
+            _ => _Unknown,
+        };
+
+        if (ram[0] >> 8) & 0xcc == 0xcc {
+            Operation::Breakpoint(instr)
+        } else {
+            Operation::Regular(instr)
+        }
+    }
+
+    /// Unwraps the operation to produce an instruction.
+    pub fn instr(self) -> Instruction {
+        match self {
+            Operation::Regular(i) => i,
+            Operation::Breakpoint(i) => i,
+        }
+    }
+
+    /// Returns true if this operation is a breakpoint
+    pub fn is_breakpoint(&self) -> bool {
+        match *self {
+            Operation::Breakpoint(_) => true,
+            _ => false
+        }
+    }
+
+    /// Checks if the address offset in ram is a valid instruction
+    pub fn is_valid(offset: usize, ram: &[u16]) -> bool {
+        let instr = Operation::next(&ram[offset..]).instr();
+
+        instr != Instruction::_Unknown
+    }
+}
+
+impl fmt::Display for Operation {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Operation::Regular(i)    => write!(f, "    {}", i),
+            Operation::Breakpoint(i) => write!(f, "[*] {}", i),
         }
     }
 }

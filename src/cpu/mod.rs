@@ -10,6 +10,15 @@ pub use self::data::Data;
 pub use self::status::Status;
 pub use self::instruction::{Operation, Instruction};
 
+use chan;
+use chan_signal;
+use chan_signal::Signal;
+
+use termion::{color, style};
+
+use std::char;
+use std::io::{stdin, Read};
+use std::thread;
 
 /// An emulator for the SynCpu architecture.
 #[derive(Clone)]
@@ -20,149 +29,211 @@ pub struct SynCpu {
     pub halted: bool,
     /// An enum describing the error that halted execution, if any.
     pub status: status::Status,
+    /// The VM data
+    pub data: Data,
     /// A buffer for reads from stdin
-    stdin_buf: String,
-    /// Set to true if the CPU is explicitly stepping
-    step: bool
+    stdin_buf: Vec<char>,
 }
 
 const MOD_BASE: u32 = 32768;
 
+
 impl SynCpu {
     /// Constructs a new VM with a given receiver for input.
     /// Returns the VM and a receiver for output.
-    pub fn new() -> SynCpu {
+    pub fn new(data: Data) -> SynCpu {
         SynCpu {
             pc: 0,
             halted: false,
             status: status::Status::default(),
-            stdin_buf: String::new(),
-            step: false,
+            data: data,
+            stdin_buf: Vec::new(),
         }
     }
 
     /// Returns the next instruction to be evaluated.
-    pub fn peek_instr(&self, data: &Data) -> Operation {
-        Operation::next(&data[self.pc..])
+    pub fn peek_op(&self) -> Operation {
+        Operation::next(&self.data[self.pc..])
+    }
+
+    
+    /// Run the CPU until a breakpoint is hit, exectuion halts
+    /// naturally, or an interrupt signal is received.
+    pub fn run(&mut self) {
+        let signal = chan_signal::notify(&[Signal::INT, Signal::KILL]);
+        
+        loop {
+            chan_select! {
+                default => {
+                    if self.halted {
+                        println!("{red}Halted.{reset}",
+                                 red = color::Fg(color::Red),
+                                 reset = style::Reset);
+                        return;
+                    }
+                    let next_op = self.peek_op();
+                    if next_op.is_breakpoint() {
+                        println!("{red}Breakpoint hit.{reset}",
+                                 red = color::Fg(color::Red),
+                                 reset = style::Reset);
+                        return;
+                    } else {
+                        self.step();
+                    }
+                },
+                signal.recv() => {
+                    println!("{red}Received signal. Breaking.{reset}",
+                             red = color::Fg(color::Red),
+                             reset = style::Reset);
+                    return;
+                }
+            }
+        }
     }
     
     /// Evaluates the next instruction given the system data
     /// returns any potential output for stdout.
-    pub fn step(&mut self, data: &mut Data, input: &[u16]) -> Option<u16> {
-        let next_instr = self.peek_instr(&data);
+    pub fn step(&mut self) {
+        let next_instr = self.peek_op().instr();
 
-        if let Operation::Breakpoint(instr) = next_instr {
-            if self.status == Status::Ok {
-                self.status = Status::Interrupted;
-                return None;
-            }
-        }
-        let next_instr = next_instr.instr();
-        let mut out = None;
-        
         use self::Instruction::*;
         match next_instr {
             Halt => {
                 self.halted = true;
             },
             Set(dst, a) => {
-                let val = data.val(a);
-                data[dst] = val;
+                let val = self.data.val(a);
+                self.data[dst] = val;
             },
             Push(src) => {
-                let val = data.val(src);
-                data.push(val);
+                let val = self.data.val(src);
+                self.data.push(val);
             },
             Pop(dst) => {
-                if data.is_stack_empty() {
+                if self.data.is_stack_empty() {
                     self.status = Status::PopOnEmptyStack;
                     self.halted = true;
                 } else {
-                    data[dst] = data.pop();
+                    self.data[dst] = self.data.pop();
                 }
             },
             Eq(dst, a, b) => {
-                if data.val(a) == data.val(b) {
-                    data[dst] = 1;
+                if self.data.val(a) == self.data.val(b) {
+                    self.data[dst] = 1;
                 } else {
-                    data[dst] = 0;
+                    self.data[dst] = 0;
                 }
             },
             Gt(dst, a, b) => {
-                if data.val(a) > data.val(b) {
-                    data[dst] = 1;
+                if self.data.val(a) > self.data.val(b) {
+                    self.data[dst] = 1;
                 } else {
-                    data[dst] = 0;
+                    self.data[dst] = 0;
                 }
             },
             Jmp(dst) => {
-                self.pc = data.val(dst);
+                self.pc = self.data.val(dst);
             },
             Jt(src, dst) => {
-                if data.val(src) != 0 {
-                    self.pc = data.val(dst);
+                if self.data.val(src) != 0 {
+                    self.pc = self.data.val(dst);
                 } else {
                     self.pc += 3;
                 }
             },
             Jf(src, dst) => {
-                if data.val(src) == 0 {
-                    self.pc = data.val(dst);
+                if self.data.val(src) == 0 {
+                    self.pc = self.data.val(dst);
                 } else {
                     self.pc += 3;
                 }
             },
             Add(dst, a, b) => {
-                let val = (data.val(a) as u32 + data.val(b) as u32) % MOD_BASE;
-                data[dst] = val as u16;
+                let val = (self.data.val(a) as u32 + self.data.val(b) as u32) % MOD_BASE;
+                self.data[dst] = val as u16;
             },
             Mult(dst, a, b) => {
-                let val = (data.val(a) as u32 * data.val(b) as u32) & MOD_BASE;
-                data[dst] = val as u16;
+                let val = (self.data.val(a) as u32 * self.data.val(b) as u32) % MOD_BASE;
+                self.data[dst] = val as u16;
             },
             Mod(dst, a, b) => {
-                let val = data.val(a) % data.val(b);
-                data[dst] = val;
+                let val = self.data.val(a) % self.data.val(b);
+                self.data[dst] = val;
             },
             And(dst, a, b) => {
-                let val = data.val(a) & data.val(b);
-                data[dst] = val;
+                let val = self.data.val(a) & self.data.val(b);
+                self.data[dst] = val;
             },
             Or(dst, a, b) => {
-                let val = data.val(a) | data.val(b);
-                data[dst] = val;
+                let val = self.data.val(a) | self.data.val(b);
+                self.data[dst] = val;
             },
             Not(dst, a) => {
-                let val = 0b111111111111111 ^ data.val(a);
-                data[dst] = val;
+                let val = 0b111111111111111 ^ self.data.val(a);
+                self.data[dst] = val;
             },
             ReadMem(dst, src) => {
-                let mem_addr = data.val(src);
-                let val = data[mem_addr];
-                data[dst] = val;
+                let mem_addr = self.data.val(src);
+                let val = self.data[mem_addr];
+                self.data[dst] = val;
             },
             WriteMem(dst, src) => {
-                let mem_addr = data.val(dst);
-                let val = data.val(src);
-                data[mem_addr] = val;
+                let mem_addr = self.data.val(dst);
+                let val = self.data.val(src);
+                self.data[mem_addr] = val;
             },
             Call(dst) => {
-                data.push(self.pc + 2);
-                self.pc = data.val(dst);
+                self.data.push(self.pc + 2);
+                self.pc = self.data.val(dst);
             },
             Ret => {
-                if data.is_stack_empty() {
+                if self.data.is_stack_empty() {
                     self.halted = true;
                 } else {
-                    self.pc = data.pop();
+                    self.pc = self.data.pop();
                 }
             },
             Out(val) => {
-                let val = data.val(val);
-                out = Some(val);
+                let val = self.data.val(val);
+                print!("{}", char::from_u32(val as u32).unwrap());
             },
             In(dst) => {
-                data[dst] = input[0];
+                if self.stdin_buf.is_empty() {
+                    let signal = chan_signal::notify(&[Signal::INT, Signal::KILL]);
+                    use std::sync::mpsc::{self, TryRecvError};
+                    let (tx, rx) = chan::sync(0);
+                    let (_ctx, crx) = mpsc::channel::<()>();
+
+                    thread::spawn(move || {
+                        let mut buf = String::new();
+                        while let Err(TryRecvError::Empty) = crx.try_recv() {
+                            let mut byte_buf = [0; 1];
+                            stdin().read_exact(&mut byte_buf).unwrap();
+                            let c = char::from_u32(byte_buf[0] as u32).unwrap();
+                            buf.push(c);
+                            if c == '\n' {
+                                let mut buf = buf.chars().collect::<Vec<_>>();
+                                buf.reverse();
+                                tx.send(buf);
+                                return;
+                            }
+                        }
+                    });
+                    
+                    chan_select! {
+                        signal.recv() => {
+                            println!("{red}Breaking during stdin read. Please enter two newlines before attempting to use the debug prompt.{clear}",
+                                     red = color::Fg(color::Red),
+                                     clear = style::Reset);
+                            return;
+                        },
+                        rx.recv() -> buf => {
+                            self.stdin_buf = buf.unwrap();
+                        }
+                    }
+                }
+                let c = self.stdin_buf.pop().unwrap();
+                self.data[dst] = c as u16;
             },
             Noop => {
                 
@@ -176,8 +247,6 @@ impl SynCpu {
 
         // The instruction knows how much to increment the pc by
         self.pc += next_instr.size();
-        
-        out
     }
     
 }

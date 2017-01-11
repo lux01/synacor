@@ -9,8 +9,6 @@ use std::default::Default;
 pub enum Status {
     /// The CPU is operating normally
     Ok,
-    /// An interrupt was triggered
-    Interrupted,
     /// An attempt to pop on an empty stack was performed
     PopOnEmptyStack,
     /// An instruction could not be parsed
@@ -24,7 +22,6 @@ impl fmt::Display for Status {
         use self::Status::*;
         match *self {
             Ok => write!(f, "Ok"),
-            Interrupted => write!(f, "Interrupted"),
             PopOnEmptyStack => write!(f, "Pop on empty stack"),
             InstructionParseError => write!(f, "Instruction parse error"),
             UnimplementedInstruction => write!(f, "Unimplemented instruction error"),
@@ -37,7 +34,6 @@ impl error::Error for Status {
         use self::Status::*;
         match *self {
             Ok => "Ok",
-            Interrupted => "Interrupted",
             PopOnEmptyStack => "Pop on empty stack",
             InstructionParseError => "Instruction parse error",
             UnimplementedInstruction => "Unimplemented instruction error",

@@ -2,44 +2,98 @@
 //!
 //! A simple debugger wrapper for SynCpus.
 
-#[macro_use]
-mod macros;
+mod command;
 
 use cpu::{SynCpu, Data};
-use termion::{style};
-use chan;
-use chan_signal;
-use chan_signal::Signal;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Mode {
-    Step,
-    Run,
-    Quit,
-}
+use termion::{style};
+
+use libc;
+use libc::{SIGINT, signal};
+
+
+use self::command::Command;
+
+use std::io::{stdout, stdin, Write, Read};
+use std::convert::Into;
+use std::collections::HashSet;
 
 pub struct Debugger {
     pub original_binary: Vec<u8>,
-    pub data: Data,
     pub cpu: SynCpu,
-    mode: Mode,
+    pub breakpoints: HashSet<usize>,
+}
+
+extern "C" fn ignore_interrupt(_: libc::c_int) {
+    print!("\n              > ");
+    stdout().flush().unwrap();
+}
+
+fn check_cargo() -> bool{
+    unsafe {
+        use std::fs::File;
+        
+        let parent_pid = libc::getppid();
+        let mut f = File::open(format!("/proc/{}/comm", parent_pid)).unwrap();
+        let mut buf = String::new();
+        f.read_to_string(&mut buf).unwrap();
+        buf == "cargo\n"
+    }
 }
 
 impl Debugger {
     pub fn new(binary: Vec<u8>) -> Debugger {
-        let cpu = SynCpu::new();
+        let data = Data::from_bin(&binary).unwrap();
+        let cpu = SynCpu::new(data);
         Debugger {
-            data: Data::from_bin(&binary).unwrap(),
             original_binary: binary,
             cpu: cpu,
-            mode: Mode::Step,
+            breakpoints: HashSet::new(),
         }
     }
 
     pub fn main_loop(&mut self) {
-        println!("{bold}Synacor VM version 0.1.0){reset}",
+        if check_cargo() {
+            println!("Warning! The VM is running under cargo, interrupts handling has been disabled.");
+        } else {
+            unsafe {
+                use libc::{c_int, c_void, sighandler_t};
+                signal(SIGINT,
+                       ignore_interrupt as extern fn(c_int) as *mut c_void as sighandler_t
+                );
+            }
+        }
+        println!("{bold}Synacor VM version 0.1.0{reset}",
                  bold = style::Bold,
                  reset = style::Reset);
+       
+        loop {
+            print!("\n(SVM: 0x{:0>4x}) > ", self.cpu.pc);
+            stdout().flush().unwrap();
+            let mut buf = String::new();
+            let result = stdin().read_line(&mut buf);
+
+            if let Err(_) = result {
+                println!("");
+                stdout().flush().unwrap();
+                continue;
+            }
+            
+            let words = buf.split_whitespace().collect::<Vec<_>>();
+
+
+            if words.is_empty() {
+                continue;
+            }
+            let cmd: Command = words[0].into();
+            if cmd == Command::Quit {
+                return;
+            } else if cmd == Command::Unknown {
+                println!("Unknown command: {:?}", buf);
+            } else {
+                cmd.execute(self, &words[1..]);
+            }
+        }
     }
 
 }

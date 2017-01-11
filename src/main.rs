@@ -7,6 +7,7 @@ extern crate byteorder;
 extern crate termion;
 #[macro_use] extern crate chan;
 extern crate chan_signal;
+extern crate libc;
 
 pub mod cpu;
 pub mod syn_int;
@@ -30,8 +31,7 @@ fn main() {
     };
     
     let mut dbg = Debugger::new(binary);
-
     dbg.main_loop();
-
+    
     println!("Goodbye!");
 }
