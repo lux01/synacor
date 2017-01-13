@@ -32,7 +32,7 @@ pub struct SynCpu {
     /// The VM data
     pub data: Data,
     /// A buffer for reads from stdin
-    stdin_buf: Vec<char>,
+    pub stdin_buf: Vec<char>,
 }
 
 const MOD_BASE: u32 = 32768;

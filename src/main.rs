@@ -17,6 +17,7 @@ use debugger::Debugger;
 
 use std::io::Read;
 use std::fs::File;
+use std::env::args;
 
 const BINARY_NAME: &'static str = "challenge.bin";
 
@@ -29,8 +30,21 @@ fn main() {
             .expect("Failed to read in binary contents.");
         buffer
     };
+
+    let replay = if let Some(val) = args().nth(1) {
+        let mut buffer = String::new();
+        let mut replay_file = File::open(val)
+            .expect("Failed to open replay file");
+        replay_file.read_to_string(&mut buffer)
+            .expect("Failed to read in replay file");
+        let mut buffer: Vec<_> = buffer.chars().collect();
+        buffer.reverse();
+        buffer
+    } else {
+        Vec::new()
+    };
     
-    let mut dbg = Debugger::new(binary);
+    let mut dbg = Debugger::with_replay(binary, replay);
     dbg.main_loop();
     
     println!("Goodbye!");

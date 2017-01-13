@@ -20,6 +20,7 @@ use std::collections::HashSet;
 
 pub struct Debugger {
     pub original_binary: Vec<u8>,
+    pub original_replay: Vec<char>,
     pub cpu: SynCpu,
     pub breakpoints: HashSet<usize>,
 }
@@ -43,13 +44,21 @@ fn check_cargo() -> bool{
 
 impl Debugger {
     pub fn new(binary: Vec<u8>) -> Debugger {
+        Debugger::with_replay(binary, Vec::new())
+    }
+
+    pub fn with_replay(binary: Vec<u8>, replay: Vec<char>) -> Debugger {
         let data = Data::from_bin(&binary).unwrap();
-        let cpu = SynCpu::new(data);
+        let mut cpu = SynCpu::new(data);
+        cpu.stdin_buf = replay.clone();
+        
         Debugger {
             original_binary: binary,
+            original_replay: replay,
             cpu: cpu,
             breakpoints: HashSet::new(),
         }
+        
     }
 
     pub fn main_loop(&mut self) {

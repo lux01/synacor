@@ -209,6 +209,7 @@ impl Command {
             Restart => {
                 let data = Data::from_bin(&dbg.original_binary).unwrap();
                 dbg.cpu = SynCpu::new(data);
+                dbg.cpu.stdin_buf = dbg.original_replay.clone();
             },
             Disassemble => {
                 let n = if let Some(num) = args.get(0).and_then(|x| x.parse().ok()) {
