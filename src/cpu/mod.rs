@@ -53,7 +53,12 @@ impl SynCpu {
 
     /// Returns the next instruction to be evaluated.
     pub fn peek_op(&self) -> Operation {
-        Operation::next(&self.data[self.pc..])
+        self.peek_op_at(self.pc)
+    }
+
+    /// Returns the next instruction at the given offset in RAM.
+    pub fn peek_op_at(&self, offset: u16) -> Operation {
+        Operation::next(&self.data[offset..])
     }
 
     

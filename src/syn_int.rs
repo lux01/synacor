@@ -42,7 +42,7 @@ impl fmt::Display for SynInt {
 impl fmt::LowerHex for SynInt {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            SynInt::Literal(val) => write!(f, "{:#x}", val),
+            SynInt::Literal(val) => write!(f, "0x{:0>4x}", val),
             SynInt::Register(val) => write!(f, "r{}", val),
         }
     }

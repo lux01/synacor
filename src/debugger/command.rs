@@ -3,7 +3,7 @@ use std::convert::From;
 use std::char;
 
 use super::Debugger;
-use cpu::instruction::Operation;
+use cpu::instruction::{Operation};
 use cpu::{SynCpu, Data};
 
 /// The commands runnable by the debugger
@@ -18,6 +18,7 @@ pub enum Command {
     Breakpoint,
     Memory,
     Restart,
+    Disassemble,
 }
 
 impl<'a> From<&'a str> for Command {
@@ -31,6 +32,7 @@ impl<'a> From<&'a str> for Command {
             "bp" | "breakpoint" => Command::Breakpoint,
             "m" | "memory" => Command::Memory,
             "restart" => Command::Restart,
+            "list" | "l" => Command::Disassemble,
             _ => Command::Unknown,
         }
     }
@@ -51,8 +53,9 @@ impl Command {
                 println!("\tregisters (r)             - Print the registers");
                 println!("\trun (c)                   - Run execution until a breakpoint is hit or the CPU halts.");
                 println!("\tbreakpoint (bp)           - Set, unset, or list breakpoints.");
-                println!("\tmemory (m) [addr] [lines] - Print 20 lines of 8 16-bit entries from RAM, starting at addr. Default lines = 10, default addr = pc");
+                println!("\tmemory (m) [lines] [addr] - Print 20 lines of 8 16-bit entries from RAM, starting at addr. Default lines = 10, default addr = pc");
                 println!("\trestart                   - Restart the program.");
+                println!("\tlist (l) [n] [addr]       - Disassemble the next n instructions, starting at addr. (default n = 10, addr = pc)");
             },
             Step => {
                 let times = if args.is_empty() {
@@ -152,26 +155,20 @@ impl Command {
                 }
             },
             Memory => {
-                let start = if let Some(word) = args.get(0) {
-                    if let Ok(num) = if word.starts_with("0x") {
-                        usize::from_str_radix(&word[2..], 16)
+                let start = if let Some(n) = args.get(0).and_then(|word| {
+                    if word.starts_with("0x") {
+                        usize::from_str_radix(&word[2..], 16).ok()
                     } else {
-                        usize::from_str_radix(word, 16)
-                    } {
-                        num
-                    } else {
-                        dbg.cpu.pc as usize
+                        usize::from_str_radix(word, 16).ok()
                     }
+                }) {
+                    n
                 } else {
                     dbg.cpu.pc as usize
                 };
 
-                let lines = if let Some(word) = args.get(1) {
-                    if let Ok(num) = word.parse::<usize>() {
-                        num
-                    } else {
-                        10
-                    }
+                let lines = if let Some(l) = args.get(1).and_then(|x| x.parse().ok()) {
+                    l
                 } else {
                     10
                 };
@@ -212,6 +209,33 @@ impl Command {
             Restart => {
                 let data = Data::from_bin(&dbg.original_binary).unwrap();
                 dbg.cpu = SynCpu::new(data);
+            },
+            Disassemble => {
+                let n = if let Some(num) = args.get(0).and_then(|x| x.parse().ok()) {
+                    num
+                } else {
+                    10
+                };
+
+                let mut pc = if let Some(num) = args.get(1).and_then(|x| x.parse().ok()) {
+                    num
+                } else {
+                    dbg.cpu.pc
+                };
+                
+                for _ in 0..n {
+                    use cpu::instruction::Instruction::*;
+
+                    let instr = dbg.cpu.peek_op_at(pc);
+                    println!("0x{:0>4x}: {}", pc, instr);
+
+                    pc += match instr.instr() {
+                        Halt | Ret => 1,
+                        Jmp(_) | Call(_) => 2,
+                        Jt(_,_) | Jf(_,_) => 3,
+                        x => x.size()
+                    };
+                }
             }
             Quit | Unknown => {}
         }
