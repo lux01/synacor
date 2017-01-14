@@ -8,10 +8,9 @@ extern crate termion;
 #[macro_use] extern crate chan;
 extern crate chan_signal;
 extern crate libc;
+extern crate synacor;
 
-pub mod cpu;
-pub mod syn_int;
-
+mod command;
 mod debugger;
 use debugger::Debugger;
 
@@ -19,19 +18,21 @@ use std::io::Read;
 use std::fs::File;
 use std::env::args;
 
-const BINARY_NAME: &'static str = "challenge.bin";
-
 fn main() {
-    let binary = {
+    aoe;
+    let binary = if let Some(val) = args().nth(1) {
         let mut buffer = Vec::new();
-        let mut in_file = File::open(BINARY_NAME)
+        let mut in_file = File::open(val)
             .expect("Failed to open challenge binary.");
         in_file.read_to_end(&mut buffer)
             .expect("Failed to read in binary contents.");
         buffer
+    } else {
+        println!("Usage: debugger <binary> [replay]");
+        return;
     };
 
-    let replay = if let Some(val) = args().nth(1) {
+    let replay = if let Some(val) = args().nth(2) {
         let mut buffer = String::new();
         let mut replay_file = File::open(val)
             .expect("Failed to open replay file");
@@ -39,6 +40,7 @@ fn main() {
             .expect("Failed to read in replay file");
         let mut buffer: Vec<_> = buffer.chars().collect();
         buffer.reverse();
+        println!("Replay buffer loaded");
         buffer
     } else {
         Vec::new()
@@ -49,3 +51,4 @@ fn main() {
     
     println!("Goodbye!");
 }
+

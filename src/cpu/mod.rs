@@ -2,6 +2,7 @@
 //!
 //! Emulates the SynCpu architecture.
 
+pub mod syn_int;
 pub mod data;
 pub mod status;
 pub mod instruction;

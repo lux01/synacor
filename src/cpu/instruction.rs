@@ -28,7 +28,7 @@
 //! | `In` | `20` | `in dst` | Read a character from the terminal and write its ASCII code to `dst`. |
 //! | `Noop` | `21` | `noop` | No operation. |
 
-use syn_int::SynInt;
+use cpu::syn_int::SynInt;
 
 use std::fmt;
 

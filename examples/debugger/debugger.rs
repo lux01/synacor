@@ -2,17 +2,13 @@
 //!
 //! A simple debugger wrapper for SynCpus.
 
-mod command;
-
-use cpu::{SynCpu, Data};
-
+use synacor::cpu::{SynCpu, Data};
 use termion::{style};
-
 use libc;
 use libc::{SIGINT, signal};
 
 
-use self::command::Command;
+use command::Command;
 
 use std::io::{stdout, stdin, Write, Read};
 use std::convert::Into;
@@ -43,9 +39,6 @@ fn check_cargo() -> bool{
 }
 
 impl Debugger {
-    pub fn new(binary: Vec<u8>) -> Debugger {
-        Debugger::with_replay(binary, Vec::new())
-    }
 
     pub fn with_replay(binary: Vec<u8>, replay: Vec<char>) -> Debugger {
         let data = Data::from_bin(&binary).unwrap();

@@ -2,9 +2,9 @@
 use std::convert::From;
 use std::char;
 
-use super::Debugger;
-use cpu::instruction::{Operation};
-use cpu::{SynCpu, Data};
+use debugger::Debugger;
+
+use synacor::{SynCpu, Data, Operation};
 
 /// The commands runnable by the debugger
 #[derive(Debug, PartialEq, Eq)]
@@ -19,6 +19,7 @@ pub enum Command {
     Memory,
     Restart,
     Disassemble,
+    DumpMemory,
 }
 
 impl<'a> From<&'a str> for Command {
@@ -33,15 +34,14 @@ impl<'a> From<&'a str> for Command {
             "m" | "memory" => Command::Memory,
             "restart" => Command::Restart,
             "list" | "l" => Command::Disassemble,
+            "dump" => Command::DumpMemory,
             _ => Command::Unknown,
         }
     }
 }
 
 impl Command {
-    pub fn execute(&self,
-               dbg: &mut Debugger,
-               args: &[&str]) {
+    pub fn execute(&self, dbg: &mut Debugger, args: &[&str]) {
         use self::Command::*;
         match *self {
             Help => {
@@ -56,6 +56,7 @@ impl Command {
                 println!("\tmemory (m) [lines] [addr] - Print 20 lines of 8 16-bit entries from RAM, starting at addr. Default lines = 10, default addr = pc");
                 println!("\trestart                   - Restart the program.");
                 println!("\tlist (l) [n] [addr]       - Disassemble the next n instructions, starting at addr. (default n = 10, addr = pc)");
+                println!("\tdump [file]               - Dump the full contents of RAM to the specified file.");
             },
             Step => {
                 let times = if args.is_empty() {
@@ -225,7 +226,7 @@ impl Command {
                 };
                 
                 for _ in 0..n {
-                    use cpu::instruction::Instruction::*;
+                    use synacor::Instruction::*;
 
                     let instr = dbg.cpu.peek_op_at(pc);
                     println!("0x{:0>4x}: {}", pc, instr);
@@ -237,7 +238,32 @@ impl Command {
                         x => x.size()
                     };
                 }
-            }
+            },
+            DumpMemory => {
+                use std::fs::File;
+                use byteorder::{LittleEndian, WriteBytesExt};
+                    
+                let mut fname = String::new();
+                for word in args {
+                    fname.push_str(word);
+                }
+
+                if fname.is_empty() {
+                    println!("Please specify a file name for the output");
+                    return;
+                }
+
+                let file = File::create(fname);
+                if let Err(e) = file {
+                    println!("Failed to create output file: {}", e);
+                } else {
+                    let mut file = file.unwrap();
+
+                    for entry in dbg.cpu.data.ram.iter() {
+                        file.write_u16::<LittleEndian>(*entry).unwrap();
+                    }
+                }
+            },
             Quit | Unknown => {}
         }
     }

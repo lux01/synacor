@@ -4,7 +4,7 @@ use std::io;
 use std::io::Cursor;
 use std::ops::{Index, IndexMut, RangeFrom};
 
-use syn_int::SynInt;
+use cpu::syn_int::SynInt;
 
 use byteorder::{LittleEndian, ReadBytesExt};
 

@@ -3,9 +3,20 @@ name = "synacor"
 version = "0.1.0"
 authors = ["Willam Woodhead <william.woodhead@lux01.co.uk>"]
 
+[lib]
+path = "src/lib.rs"
+name = "synacor"
+
+[[example]]
+name = "debugger"
+path = "examples/debugger/main.rs"
+
 [dependencies]
-byteorder = "1.0"
-libc = "0.2"
-termion = "1.1"
-chan = "0.1"
-chan-signal = "0.2"
+byteorder = "^1.0"
+libc = "^0.2"
+termion = "^1.1"
+chan = "^0.1"
+chan-signal = "^0.2"
+
+[dev-dependencies]
+libc = "^0.2"
