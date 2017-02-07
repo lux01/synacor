@@ -19,7 +19,6 @@ use std::fs::File;
 use std::env::args;
 
 fn main() {
-    aoe;
     let binary = if let Some(val) = args().nth(1) {
         let mut buffer = Vec::new();
         let mut in_file = File::open(val)
