@@ -31,7 +31,7 @@
 use cpu::syn_int::SynInt;
 
 use std::fmt;
-
+use std::char;
 
 /// Enum representation of all the supported instructions.
 ///
@@ -83,6 +83,19 @@ impl Instruction {
             _ => 4,
         }
     }
+
+    /// Returns the size of the instruction in word counts.
+    pub fn word_size(&self) -> u16 {
+        use self::Instruction::*;
+        
+        match *self {
+            // Jumps will increment the pc manually
+            Halt | Ret | Noop | _Unknown => 1,
+            Push(_) | Pop(_) | Out(_) | In(_) | Jmp(_) | Call(_) => 2,
+            Set(_, _) | Not(_, _) | ReadMem(_, _) | WriteMem(_, _) | Jt(_, _) | Jf (_, _) => 3,
+            _ => 4,
+        }
+    }
 }
 
 impl fmt::Display for Instruction {
@@ -125,8 +138,18 @@ impl fmt::Display for Instruction {
             Call(dst)          => write!(f, "call {:x}",
                                          dst),
             Ret                => write!(f, "ret  "),
-            Out(val)           => write!(f, "out  {}",
-                                         val),
+            Out(val)           => {
+                match val {
+                    SynInt::Literal(x) => {
+                        write!(f, "out  '{:#}'",
+                               char::from_u32(x as u32).unwrap())
+                    },
+                    SynInt::Register(r) => {
+                        write!(f, "out  r{}",
+                               r)
+                    }
+                }
+            },
             In(dst)            => write!(f, "in   {}",
                                          dst),
             Noop               => write!(f, "noop "),

@@ -20,6 +20,8 @@ pub enum Command {
     Restart,
     Disassemble,
     DumpMemory,
+    SetRegister,
+    PrintStack,
 }
 
 impl<'a> From<&'a str> for Command {
@@ -35,6 +37,8 @@ impl<'a> From<&'a str> for Command {
             "restart" => Command::Restart,
             "list" | "l" => Command::Disassemble,
             "dump" => Command::DumpMemory,
+            "set" => Command::SetRegister,
+            "ps" | "stack" => Command::PrintStack,
             _ => Command::Unknown,
         }
     }
@@ -262,6 +266,36 @@ impl Command {
                     for entry in dbg.cpu.data.ram.iter() {
                         file.write_u16::<LittleEndian>(*entry).unwrap();
                     }
+                }
+            },
+            SetRegister => {
+                let reg_num = if let Some(val) = args.get(0)
+                    .and_then(|x| x.parse::<usize>().ok()) {
+                        if val < 8 {
+                            val
+                        } else {
+                            println!("Register number must be between 0 and 7");
+                            return;
+                        }
+                    } else {
+                        println!("Register number must be between 0 and 7");
+                        return;
+                    };
+
+                let val = if let Some(val) = args.get(1)
+                    .and_then(|x| x.parse::<u16>().ok()) {
+                        val
+                    } else {
+                        println!("Register value must be a 16-bit unsigned integer.");
+                        return;
+                    };
+                
+                dbg.cpu.data.registers[reg_num] = val;
+            },
+            PrintStack => {
+                println!("Stack contents: ");
+                for (i, val) in dbg.cpu.data.stack.iter().enumerate() {
+                    println!("\t[{}]: 0x{:0>4x}", i, val);
                 }
             },
             Quit | Unknown => {}
