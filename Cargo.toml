@@ -7,17 +7,17 @@ authors = ["Willam Woodhead <william.woodhead@lux01.co.uk>"]
 path = "src/lib.rs"
 name = "synacor"
 
-[[example]]
+[[bin]]
 name = "debugger"
-path = "examples/debugger/main.rs"
+path = "src/debugger/main.rs"
 
-[[example]]
+[[bin]]
 name = "disassembler"
-path = "examples/disassembler/main.rs"
+path = "src/disassembler/main.rs"
 
-[[example]]
+[[bin]]
 name = "brute_forcer"
-path = "examples/brute_forcer/main.rs"
+path = "src/brute_forcer/main.rs"
 
 [dependencies]
 byteorder = "^1.0"
