@@ -1,132 +1,104 @@
-use std::thread;
-use std::ops::Range;
+use std::u16;
+use std::ops::Add;
+use std::collections::HashMap;
+use std::convert::{Into, From};
+use std::fmt;
 
-#[derive(Debug)]
-struct Regs {
-    r0: u16,
-    r1: u16,
-    r7: u16,
-}
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
+struct U15(u16);
 
-fn algorithm(regs: &mut Regs) {
-    if regs.r0 == 0 {
-        regs.r0 = regs.r1 + 1;
-        return;
-    } else if regs.r1 == 0 {
-        regs.r0 = regs.r0 - 1;
-        regs.r1 = regs.r7;
+const N: u16 = 1 << 15;
+const N_SUB_1: U15 = U15(N - 1);
+const ZERO_15: U15 = U15(0);
+const ONE_15: U15 = U15(1);
 
-        algorithm(regs);
-        return;
-    } else {
-        let tmp0 = regs.r0;
-        regs.r1 = regs.r1 - 1;
-
-        algorithm(regs);
-
-        regs.r1 = regs.r0;
-        regs.r0 = tmp0;
-        regs.r0 = regs.r0 - 1;
-
-        algorithm(regs);
-
-        return;
+impl fmt::Display for U15 {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 
-fn thread_body(range: Range<u16>) -> Vec<(u16, Regs)> {
-    range.map(|r7| {
-        let mut regs = Regs {
-            r0: 4,
-            r1: 1,
-            r7: r7,
-        };
-
-        algorithm(&mut regs);
-
-        (r7, regs)
-    }).collect()
+impl From<u16> for U15 {
+    fn from(x: u16) -> U15 {
+        U15(x % N)
+    }
 }
 
-fn main() {
-    let thread1 = thread::Builder::new()
-        .name("bf-1".to_owned())
-        .spawn(move || {
-            thread_body(1..4682)
-        }).unwrap();
+impl Add for U15 {
+    type Output = U15;
 
-    
-    let thread2 = thread::Builder::new()
-        .name("bf-2".to_owned())
-        .spawn(move || {
-            thread_body(4682..9363)
-        }).unwrap();
-
-    
-    let thread3 = thread::Builder::new()
-        .name("bf-3".to_owned())
-        .spawn(move || {
-            thread_body(9363..14044)
-        }).unwrap();
-
-    
-    let thread4 = thread::Builder::new()
-        .name("bf-4".to_owned())
-        .spawn(move || {
-            thread_body(14044..18725)
-        }).unwrap();
-
-    
-    let thread5 = thread::Builder::new()
-        .name("bf-5".to_owned())
-        .spawn(move || {
-            thread_body(18725..23406)
-        }).unwrap();
-
-    
-    let thread6 = thread::Builder::new()
-        .name("bf-6".to_owned())
-        .spawn(move || {
-            thread_body(23406..28087)
-        }).unwrap();
-
-    
-    let thread7 = thread::Builder::new()
-        .name("bf-7".to_owned())
-        .spawn(move || {
-            thread_body(28087..32767)
-        }).unwrap();
-
-
-    let vec1 = thread1.join().unwrap();
-    let vec2 = thread2.join().unwrap();
-    let vec3 = thread3.join().unwrap();
-    let vec4 = thread4.join().unwrap();
-    let vec5 = thread5.join().unwrap();
-    let vec6 = thread6.join().unwrap();
-    let vec7 = thread7.join().unwrap();
-
-
-    for (r7, regs) in vec1 {
-        println!("{: >5}: r0 = {: >5}", r7, regs.r0);
+    fn add(self, other: U15) -> U15 {
+        U15(self.0.wrapping_add(other.0) % N)
     }
-    for (r7, regs) in vec2 {
-        println!("{: >5}: r0 = {: >5}", r7, regs.r0);
+}
+
+impl<'a, 'b> Add<&'b U15> for &'a U15 {
+    type Output = U15;
+
+    fn add(self, other: &'b U15) -> U15 {
+        U15(self.0.wrapping_add(other.0) % N)
     }
-    for (r7, regs) in vec3 {
-        println!("{: >5}: r0 = {: >5}", r7, regs.r0);
+}
+
+impl<'a> Add<&'a U15> for U15 {
+    type Output = U15;
+
+    fn add(self, other: &'a U15) -> U15 {
+        U15(self.0.wrapping_add(other.0) % N)
     }
-    for (r7, regs) in vec4 {
-        println!("{: >5}: r0 = {: >5}", r7, regs.r0);
+}
+
+impl<'a> Add<U15> for &'a U15 {
+    type Output = U15;
+
+    fn add(self, other: U15) -> U15 {
+        U15(self.0.wrapping_add(other.0) % N)
     }
-    for (r7, regs) in vec5 {
-        println!("{: >5}: r0 = {: >5}", r7, regs.r0);
+}
+
+struct AckermannCache {
+    r7: U15,
+    cache: HashMap<(U15, U15), U15>,
+}
+
+impl AckermannCache {
+    fn new<T: Into<U15>>(r7: T) -> AckermannCache {
+        AckermannCache {
+            r7: r7.into(),
+            cache: HashMap::new(),
+        }
     }
-    for (r7, regs) in vec6 {
-        println!("{: >5}: r0 = {: >5}", r7, regs.r0);
+
+    fn get<T: Into<U15>>(&mut self, m_: T, n_: T) -> U15 {
+        let m = m_.into();
+        let n = n_.into();
+
+        if !self.cache.contains_key(&(m, n)) {
+            let val = if m == ZERO_15 {
+                n + ONE_15
+            } else if n == ZERO_15 {
+                let r7 = self.r7;
+                self.get(m + N_SUB_1, r7)
+            } else {
+                let new_n = self.get(m, n + N_SUB_1);
+                self.get(m + N_SUB_1, new_n)
+            };
+            self.cache.insert((m, n), val);
+        }
+
+        self.cache[&(m, n)]
     }
-    for (r7, regs) in vec7 {
-        println!("{: >5}: r0 = {: >5}", r7, regs.r0);
+}
+
+fn main() {    
+    for i in 1..N {
+        let r7 = U15(i);
+        let mut ac = AckermannCache::new(r7);
+        let r0 = ac.get(4, 1);
+        
+        if r0 == 6.into() {
+            println!("r7 = {: >5}, r0 = {: >5}", r7, r0);
+        }
     }
-    
+
 }
