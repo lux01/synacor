@@ -1,6 +1,8 @@
 //! Debugger commands
+use std::collections::HashSet;
 use std::convert::From;
 use std::char;
+use std::u16;
 
 use debugger::Debugger;
 
@@ -22,6 +24,7 @@ pub enum Command {
     DumpMemory,
     SetRegister,
     PrintStack,
+    Jump
 }
 
 impl<'a> From<&'a str> for Command {
@@ -39,6 +42,7 @@ impl<'a> From<&'a str> for Command {
             "dump" => Command::DumpMemory,
             "set" => Command::SetRegister,
             "ps" | "stack" => Command::PrintStack,
+            "jump" => Command::Jump,
             _ => Command::Unknown,
         }
     }
@@ -49,8 +53,8 @@ impl Command {
         use self::Command::*;
         match *self {
             Help => {
-                println!("The following commands are available. Short forms are listed\
-                          in brackets after the long form. Options, if any are listed\
+                println!("The following commands are available. Short forms are listed \
+                          in brackets after the long form. Options, if any are listed \
                           after the short forms");
                 println!("\thelp (h, ?)               - Print this message");
                 println!("\tstep (s) [n]              - Step through n instructions (default = 1)");
@@ -61,6 +65,9 @@ impl Command {
                 println!("\trestart                   - Restart the program.");
                 println!("\tlist (l) [n] [addr]       - Disassemble the next n instructions, starting at addr. (default n = 10, addr = pc)");
                 println!("\tdump [file]               - Dump the full contents of RAM to the specified file.");
+                println!("\tset [n] [value]           - Set register n to the given (decimal) value.");
+                println!("\tstack (ps)                - Print the contents of the stack.");
+                println!("\tjump [addr]               - Set the programme counter to the given address (in hexadecimal).");
             },
             Step => {
                 let times = if args.is_empty() {
@@ -215,6 +222,7 @@ impl Command {
                 let data = Data::from_bin(&dbg.original_binary).unwrap();
                 dbg.cpu = SynCpu::new(data);
                 dbg.cpu.stdin_buf = dbg.original_replay.clone();
+                dbg.breakpoints = HashSet::new();
             },
             Disassemble => {
                 let n = if let Some(num) = args.get(0).and_then(|x| x.parse().ok()) {
@@ -298,6 +306,21 @@ impl Command {
                     println!("\t[{}]: 0x{:0>4x}", i, val);
                 }
             },
+            Jump => {
+                let offset = if let Some(val) = args.get(0)
+                    .and_then(|x| if x.starts_with("0x") {
+                        u16::from_str_radix(&x[2..], 16).ok()
+                    }else {
+                        u16::from_str_radix(x, 16).ok()
+                    }) {
+                        val
+                    } else {
+                        println!("Jump target must be a valid 16-bit hexadecimal unsigned integer.");
+                        return;
+                    };
+
+                dbg.cpu.pc = offset;
+            }
             Quit | Unknown => {}
         }
     }
