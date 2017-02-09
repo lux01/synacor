@@ -2,6 +2,7 @@
 //!
 //! Emulates the SynCpu architecture.
 
+pub mod injection;
 pub mod syn_int;
 pub mod data;
 pub mod status;
@@ -10,6 +11,7 @@ pub mod instruction;
 pub use self::data::Data;
 pub use self::status::Status;
 pub use self::instruction::{Operation, Instruction};
+pub use self::injection::Injection;
 
 use chan;
 use chan_signal;
@@ -34,6 +36,9 @@ pub struct SynCpu {
     pub data: Data,
     /// A buffer for reads from stdin
     pub stdin_buf: Vec<char>,
+    /// Controls whether the CPU prints messages when it receives signals from the underlying
+    /// operating system or not.
+    pub loud: bool,
 }
 
 const MOD_BASE: u32 = 32768;
@@ -49,6 +54,7 @@ impl SynCpu {
             status: status::Status::default(),
             data: data,
             stdin_buf: Vec::new(),
+            loud: true,
         }
     }
 
@@ -72,25 +78,31 @@ impl SynCpu {
             chan_select! {
                 default => {
                     if self.halted {
-                        println!("{red}Halted.{reset}",
-                                 red = color::Fg(color::Red),
-                                 reset = style::Reset);
+                        if self.loud {
+                            println!("{red}Halted.{reset}",
+                                     red = color::Fg(color::Red),
+                                     reset = style::Reset);
+                        }
                         return;
                     }
                     let next_op = self.peek_op();
                     if next_op.is_breakpoint() {
-                        println!("{red}Breakpoint hit.{reset}",
-                                 red = color::Fg(color::Red),
-                                 reset = style::Reset);
+                        if self.loud {
+                            println!("{red}Breakpoint hit.{reset}",
+                                     red = color::Fg(color::Red),
+                                     reset = style::Reset);
+                        }
                         return;
                     } else {
                         self.step();
                     }
                 },
                 signal.recv() => {
-                    println!("{red}Received signal. Breaking.{reset}",
-                             red = color::Fg(color::Red),
-                             reset = style::Reset);
+                    if self.loud {
+                        println!("{red}Received signal. Breaking.{reset}",
+                                 red = color::Fg(color::Red),
+                                 reset = style::Reset);
+                    }
                     return;
                 }
             }
@@ -228,9 +240,11 @@ impl SynCpu {
                     
                     chan_select! {
                         signal.recv() => {
-                            println!("{red}Breaking during stdin read. Please enter two newlines before attempting to use the debug prompt.{clear}",
-                                     red = color::Fg(color::Red),
-                                     clear = style::Reset);
+                            if self.loud {
+                                println!("{red}Breaking during stdin read. Please enter two newlines before attempting to use the debug prompt.{clear}",
+                                         red = color::Fg(color::Red),
+                                         clear = style::Reset);
+                            }
                             return;
                         },
                         rx.recv() -> buf => {
@@ -254,5 +268,4 @@ impl SynCpu {
         // The instruction knows how much to increment the pc by
         self.pc += next_instr.size();
     }
-    
 }

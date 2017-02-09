@@ -30,8 +30,8 @@ fn main() {
     let data = Data::from_bin(&binary)
         .expect("Failed to parse binary");
     
-    let mut pc = 0;
-    while pc != data.ram.len() as _ {
+    let mut pc: u16 = 0;
+    while pc != data.ram.len() as u16 {
         let instr = Operation::next(&data[pc..]).instr();
 
         writeln!(&mut out_file, "0x{:0>4x}: {:#}", pc, instr)

@@ -2,7 +2,7 @@
 //!
 //! A simple debugger wrapper for SynCpus.
 
-use synacor::cpu::{SynCpu, Data};
+use synacor::cpu::{SynCpu, Data, Injection};
 use termion::{style};
 use libc;
 use libc::{SIGINT, signal};
@@ -40,8 +40,13 @@ fn check_cargo() -> bool{
 
 impl Debugger {
 
-    pub fn with_replay(binary: Vec<u8>, replay: Vec<char>) -> Debugger {
-        let data = Data::from_bin(&binary).unwrap();
+    pub fn new(binary: Vec<u8>, replay: Vec<char>, injections: &[Injection]) -> Debugger {
+        let mut data = Data::from_bin(&binary).unwrap();
+
+        for injection in injections {
+            injection.inject(&mut data);
+        }
+        
         let mut cpu = SynCpu::new(data);
         cpu.stdin_buf = replay.clone();
         
@@ -65,7 +70,7 @@ impl Debugger {
                 );
             }
         }
-        println!("{bold}Synacor VM version 0.1.0{reset}",
+        println!("{bold}Synacor VM debugger version 0.1.0{reset}",
                  bold = style::Bold,
                  reset = style::Reset);
        

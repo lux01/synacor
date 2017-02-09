@@ -1,24 +1,13 @@
-//! # Synacor Challenge
-//!
-//! A Rust based runtime for the Synacor challenge architecture.
-#![warn(missing_docs)]
-
-extern crate byteorder;
-extern crate termion;
-#[macro_use] extern crate chan;
-extern crate chan_signal;
-extern crate libc;
 extern crate synacor;
-
-mod command;
-mod debugger;
-use debugger::Debugger;
 
 use std::io::Read;
 use std::fs::File;
 use std::env::args;
 
+use synacor::{SynCpu, Data, Injection};
+
 fn main() {
+    // Load the binary, replay and injections
     let binary = if let Some(val) = args().nth(1) {
         let mut buffer = Vec::new();
         let mut in_file = File::open(val)
@@ -27,7 +16,7 @@ fn main() {
             .expect("Failed to read in binary contents.");
         buffer
     } else {
-        println!("Usage: debugger <binary> [replay] [injections]");
+        println!("Usage: synvm <binary> [replay] [injections]");
         return;
     };
 
@@ -51,14 +40,24 @@ fn main() {
             .expect("Failed to open injection file");
         injection_file.read_to_string(&mut buffer)
             .expect("Failed to read in injection file");
-        synacor::Injection::from_json(&buffer)
+        Injection::from_json(&buffer)
     } else {
         vec![]
     };
-   
-    let mut dbg = Debugger::new(binary, replay, &injections);
-    dbg.main_loop();
-    
-    println!("Goodbye!");
-}
 
+    // Prepare the CPU
+    let mut data = Data::from_bin(&binary)
+        .expect("Failed to load decode program binary.");
+
+    for injection in injections {
+        injection.inject(&mut data);
+    }
+
+    let mut cpu = SynCpu::new(data);
+    cpu.stdin_buf = replay;
+    cpu.loud = false;
+
+    // Run the CPU
+    cpu.run();
+
+}

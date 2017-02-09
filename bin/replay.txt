@@ -49,3 +49,21 @@ use corroded coin
 north
 take teleporter
 look teleporter
+use teleporter
+west
+east
+east
+west
+north
+north
+north
+north
+north
+north
+north
+east
+take journal
+look journal
+west
+north
+north
