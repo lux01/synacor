@@ -116,7 +116,7 @@ computeStates = map (\(path, _) -> (path, computeState path))
 
 -- | The end state
 endState :: State
-endState = ((3, 3), 3)
+endState = ((3, 3), 30)
 
 -- | Checks if the end state is in the given list
 hasEndState :: [(Path, State)] -> Bool

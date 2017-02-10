@@ -2,12 +2,18 @@ Trying length 2 paths.
 Trying length 4 paths.
 Trying length 6 paths.
 Trying length 8 paths.
+Trying length 10 paths.
+Trying length 12 paths.
 Solution found! Path is: 
+   North
+   East
    East
    North
+   West
    South
+   East
+   East
+   West
+   North
    North
    East
-   North
-   East
-   North
