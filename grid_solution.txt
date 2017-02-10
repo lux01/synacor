@@ -1,0 +1,13 @@
+Trying length 2 paths.
+Trying length 4 paths.
+Trying length 6 paths.
+Trying length 8 paths.
+Solution found! Path is: 
+   East
+   North
+   South
+   North
+   East
+   North
+   East
+   North

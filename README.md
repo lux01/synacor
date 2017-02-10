@@ -1,13 +1,12 @@
 # Synacor Challenge
 
-The [Synacor Challenge][Synacor] is a programming challenge where contestents are tasked to implement a virtual machine for a custom architecture specified in the [`arch-spec`](/arch-spec) file. A binary [`bin/challenge.bin`](/bin/challenge.bin) has been provided and contains a number of passcodes for input on the challenge website to track your progress. This repository contains a Rust library that implements the CPU and some related binaries.
+The [Synacor Challenge][Synacor] is a programming challenge where contestents are tasked to implement a virtual machine for a custom architecture specified in the [`arch-spec`](/arch-spec) file. A binary [`bin/challenge.bin`](/bin/challenge.bin) has been provided and contains a number of passcodes for input on the challenge website to track your progress. This repository contains a Rust library that implements the CPU, and some extra executables that implement the VM and solve various challenges that appear during execution.
 
 [Synacor]: https://challenge.synacor.com
 
+**NB**: This repository contains all the details you need to be able to find all the codes for the challenge without having to implement your own solutions. Please don't ruin the fun for everyone else by cheating!
 
 ## Executables
-
-Some executables are provided, three of which are related to the architecture iteself: a virtual machine, a debugger, and and disassembler. The rest are related to solving problems that arise while attempting to run the challenge binary.
 
 ### Debugger
 
@@ -78,6 +77,15 @@ To get past the 6th code, one needs to force the CPU to modify a register to a s
 $ cargo run --release --bin brute_forcer
 ```
 the output of which can be seen [here](/the_eight_register.txt).
+
+### Vault grid solver
+
+To get the final code, you need to navigate through a grid with special rules for movement and unlocking the final door. A Haskell binary `synacor-grid` is provided in [`grid-src/Main.rs`](/grid-src/Main.rs) and can be built and run using `stack`:
+```
+$ stack build
+$ stack exec synacor-grid
+```
+the output of which can be seen [here](/grid_solution.txt).
 
 ## License
 
