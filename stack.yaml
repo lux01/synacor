@@ -17,6 +17,9 @@
 #  location: "./custom-snapshot.yaml"
 resolver: lts-7.19
 
+ghc-options:
+    "*": -Wall -O2
+
 # User packages to be built.
 # Various formats can be used as shown in the example below.
 #
