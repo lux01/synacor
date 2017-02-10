@@ -49,6 +49,8 @@ The following commands are available. Short forms are listed in brackets after t
 ```
 Use `Ctrl+C` to interrupt the CPU during execution to drop back to the debug prompt.
 
+[cargo-bug]: https://github.com/rust-lang/cargo/issues/2343
+
 ### Virtual machine
 
 The virtual machine can be built and run using cargo:
