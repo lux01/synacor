@@ -80,7 +80,7 @@ the output of which can be seen [here](/the_eight_register.txt).
 
 ### Vault grid solver
 
-To get the final code, you need to navigate through a grid with special rules for movement and unlocking the final door. A Haskell binary `synacor-grid` is provided in [`grid-src/Main.rs`](/grid-src/Main.rs) and can be built and run using `stack`:
+To get the final code, you need to navigate through a grid with special rules for movement and unlocking the final door. A Haskell binary `synacor-grid` is provided in [`grid-src/Main.hs`](/grid-src/Main.hs) and can be built and run using `stack`:
 ```
 $ stack build
 $ stack exec synacor-grid
