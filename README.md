@@ -78,7 +78,7 @@ To get past the 6th code, one needs to force the CPU to modify a register to a s
 ```
 $ cargo run --release --bin brute_forcer
 ```
-the output of which can be seen [here](/the_eight_register.txt).
+the output of which can be seen [here](/the_eigth_register.txt).
 
 ### Vault grid solver
 
